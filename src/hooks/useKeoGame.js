@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  ALERT_DURATION,
-  GAME_DURATION_SECONDS,
-  ITEM_SPAWN_INTERVAL,
-  KEO_SCORE,
-  PADDLE_HEIGHT,
-  PADDLE_INITIAL_SPEED,
-  PADDLE_KEY_STEP,
-  PADDLE_MIN_SPEED,
-  PADDLE_SLOWDOWN,
-  PADDLE_WIDTH,
-  WATER_CHANCE,
-  WATER_SCORE,
-  WATER_SPEED_MULTIPLIER,
+  COLLISION_CONFIG,
+  GAME_COLORS,
+  GAME_CONFIG,
+  ITEM_CONFIG,
+  PADDLE_CONFIG,
+  SPAWN_CONFIG,
 } from '../game/constants.js'
 import { drawItem } from '../game/drawItem.js'
 import { getResultMessage } from '../game/resultMessages.js'
@@ -23,7 +16,7 @@ import { getResultMessage } from '../game/resultMessages.js'
 export function useKeoGame({ onStart, onReturn }) {
   const canvasRef = useRef(null)
   const [score, setScore] = useState(0)
-  const [secondsLeft, setSecondsLeft] = useState(GAME_DURATION_SECONDS)
+  const [secondsLeft, setSecondsLeft] = useState(GAME_CONFIG.durationSeconds)
   /** @type {[import('../game/types.js').GameStatus, Function]} */
   const [status, setStatus] = useState('ready')
   const [round, setRound] = useState(0)
@@ -40,33 +33,41 @@ export function useKeoGame({ onStart, onReturn }) {
     const state = {
       paddleX: 0,
       paddleTargetX: 0,
-      paddleSpeed: PADDLE_INITIAL_SPEED,
+      paddleSpeedRatio: PADDLE_CONFIG.initialSpeedRatio,
+      paddleWidth: 0,
+      paddleWideUntil: 0,
       width: 0,
       height: 0,
-      cans: [],
+      items: [],
       score: 0,
       lastSpawn: 0,
     }
     let frame
     let alertTimeout
     let previousTime = performance.now()
-    const finishTime = previousTime + GAME_DURATION_SECONDS * 1000
+    const finishTime = previousTime + GAME_CONFIG.durationSeconds * 1000
+    let nextBonusTime = previousTime + SPAWN_CONFIG.bonusMinimumIntervalMs + Math.random() * SPAWN_CONFIG.bonusIntervalVarianceMs
+    let lastBonusType = Math.random() < .5 ? 'paddleBonus' : 'speedBonus'
 
     const resize = () => {
       const bounds = canvas.getBoundingClientRect()
-      const ratio = Math.min(window.devicePixelRatio || 1, 2)
+      const ratio = Math.min(window.devicePixelRatio || 1, GAME_CONFIG.maxDevicePixelRatio)
       canvas.width = bounds.width * ratio
       canvas.height = bounds.height * ratio
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
       state.width = bounds.width
       state.height = bounds.height
-      state.paddleX = Math.max(0, (state.width - PADDLE_WIDTH) / 2)
+      const widthMultiplier = state.paddleWideUntil > performance.now()
+        ? PADDLE_CONFIG.bonusWidthMultiplier
+        : 1
+      state.paddleWidth = state.width * PADDLE_CONFIG.widthRatio * widthMultiplier
+      state.paddleX = Math.max(0, (state.width - state.paddleWidth) / 2)
       state.paddleTargetX = state.paddleX
     }
 
     const movePaddle = (clientX) => {
       const bounds = canvas.getBoundingClientRect()
-      state.paddleTargetX = Math.max(0, Math.min(state.width - PADDLE_WIDTH, clientX - bounds.left - PADDLE_WIDTH / 2))
+      state.paddleTargetX = Math.max(0, Math.min(state.width - state.paddleWidth, clientX - bounds.left - state.paddleWidth / 2))
     }
 
     const handlePointer = (event) => movePaddle(event.clientX)
@@ -74,12 +75,12 @@ export function useKeoGame({ onStart, onReturn }) {
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault()
         const direction = event.key === 'ArrowLeft' ? -1 : 1
-        state.paddleTargetX = Math.max(0, Math.min(state.width - PADDLE_WIDTH, state.paddleTargetX + direction * PADDLE_KEY_STEP))
+        state.paddleTargetX = Math.max(0, Math.min(state.width - state.paddleWidth, state.paddleTargetX + direction * state.width * PADDLE_CONFIG.keyboardStepRatio))
       }
     }
 
     const draw = (time) => {
-      const delta = Math.min((time - previousTime) / 1000, 0.03)
+      const delta = Math.min((time - previousTime) / 1000, GAME_CONFIG.maxDeltaSeconds)
       previousTime = time
       const remaining = Math.max(0, finishTime - time)
       setSecondsLeft(Math.ceil(remaining / 1000))
@@ -90,53 +91,88 @@ export function useKeoGame({ onStart, onReturn }) {
         return
       }
 
+      if (state.paddleWideUntil && time >= state.paddleWideUntil) {
+        state.paddleWidth = state.width * PADDLE_CONFIG.widthRatio
+        state.paddleWideUntil = 0
+        state.paddleX = Math.min(state.paddleX, state.width - state.paddleWidth)
+        state.paddleTargetX = Math.min(state.paddleTargetX, state.width - state.paddleWidth)
+      }
+
       const paddleDistance = state.paddleTargetX - state.paddleX
-      const paddleStep = Math.sign(paddleDistance) * Math.min(Math.abs(paddleDistance), state.paddleSpeed * delta)
+      const paddleStep = Math.sign(paddleDistance) * Math.min(Math.abs(paddleDistance), state.width * state.paddleSpeedRatio * delta)
       state.paddleX += paddleStep
 
-      if (time - state.lastSpawn > ITEM_SPAWN_INTERVAL) {
-        const isWater = Math.random() < WATER_CHANCE
-        const baseSpeed = 145 + Math.random() * 115 + state.score * 1.5
-        state.cans.push({
-          type: isWater ? 'water' : 'keo',
-          x: 24 + Math.random() * Math.max(1, state.width - 48),
-          y: -35,
-          speed: isWater ? baseSpeed * WATER_SPEED_MULTIPLIER : baseSpeed,
-          rotation: (Math.random() - .5) * .5,
-          spin: (Math.random() - .5) * 1.8,
+      if (time - state.lastSpawn > SPAWN_CONFIG.itemIntervalMs) {
+        const itemRoll = Math.random()
+        const itemType = itemRoll < ITEM_CONFIG.megaWater.chance
+          ? 'megaWater'
+          : itemRoll < ITEM_CONFIG.megaWater.chance + ITEM_CONFIG.water.chance
+          ? 'water'
+          : itemRoll < ITEM_CONFIG.megaWater.chance + ITEM_CONFIG.water.chance + ITEM_CONFIG.megaKeo.chance ? 'megaKeo' : 'keo'
+        const baseSpeed = SPAWN_CONFIG.minimumFallSpeed + Math.random() * SPAWN_CONFIG.fallSpeedVariance + state.score * SPAWN_CONFIG.scoreSpeedIncrease
+        state.items.push({
+          type: itemType,
+          x: SPAWN_CONFIG.horizontalPadding + Math.random() * Math.max(1, state.width - SPAWN_CONFIG.horizontalPadding * 2),
+          y: SPAWN_CONFIG.startY,
+          speed: itemType === 'water' || itemType === 'megaWater' ? baseSpeed * SPAWN_CONFIG.waterSpeedMultiplier : baseSpeed,
+          rotation: (Math.random() - .5) * SPAWN_CONFIG.rotationVariance,
+          spin: (Math.random() - .5) * SPAWN_CONFIG.spinVariance,
         })
         state.lastSpawn = time
       }
 
-      const paddleY = state.height - 30
-      state.cans = state.cans.filter((item) => {
+      if (time >= nextBonusTime) {
+        const bonusType = lastBonusType === 'paddleBonus' ? 'speedBonus' : 'paddleBonus'
+        state.items.push({
+          type: bonusType,
+          x: SPAWN_CONFIG.horizontalPadding + Math.random() * Math.max(1, state.width - SPAWN_CONFIG.horizontalPadding * 2),
+          y: SPAWN_CONFIG.startY,
+          speed: SPAWN_CONFIG.bonusMinimumSpeed + Math.random() * SPAWN_CONFIG.bonusSpeedVariance,
+          rotation: 0,
+          spin: SPAWN_CONFIG.bonusSpin,
+        })
+        lastBonusType = bonusType
+        nextBonusTime = time + SPAWN_CONFIG.bonusMinimumIntervalMs + Math.random() * SPAWN_CONFIG.bonusIntervalVarianceMs
+      }
+
+      const paddleY = state.height - PADDLE_CONFIG.bottomOffset
+      state.items = state.items.filter((item) => {
         item.y += item.speed * delta
         item.rotation += item.spin * delta
-        const caught = item.y + 27 >= paddleY
-          && item.y - 27 < paddleY + PADDLE_HEIGHT
-          && item.x >= state.paddleX - 16
-          && item.x <= state.paddleX + PADDLE_WIDTH + 16
+        const itemHalfHeight = ITEM_CONFIG[item.type].halfHeight
+        const caught = item.y + itemHalfHeight >= paddleY
+          && item.y - itemHalfHeight < paddleY + PADDLE_CONFIG.height
+          && item.x >= state.paddleX - COLLISION_CONFIG.horizontalItemRadius
+          && item.x <= state.paddleX + state.paddleWidth + COLLISION_CONFIG.horizontalItemRadius
 
         if (caught) {
-          state.score = Math.max(0, state.score + (item.type === 'water' ? WATER_SCORE : KEO_SCORE))
-          setScore(state.score)
-          state.paddleSpeed = item.type === 'water'
-            ? PADDLE_INITIAL_SPEED
-            : Math.max(PADDLE_MIN_SPEED, state.paddleSpeed - PADDLE_SLOWDOWN)
+          if (item.type === 'paddleBonus') {
+            state.paddleWidth = Math.min(state.width * PADDLE_CONFIG.widthRatio * PADDLE_CONFIG.bonusWidthMultiplier, state.width)
+            state.paddleWideUntil = time + PADDLE_CONFIG.bonusDurationMs
+          } else if (item.type === 'speedBonus') {
+            state.paddleSpeedRatio = PADDLE_CONFIG.initialSpeedRatio
+          } else {
+            const scoreDelta = ITEM_CONFIG[item.type].score
+            state.score = Math.max(0, state.score + scoreDelta)
+            setScore(state.score)
+            state.paddleSpeedRatio = item.type === 'water' || item.type === 'megaWater'
+              ? PADDLE_CONFIG.initialSpeedRatio
+              : Math.max(PADDLE_CONFIG.minimumSpeedRatio, state.paddleSpeedRatio - PADDLE_CONFIG.slowdownRatio)
+          }
           setCatchAlert({ type: item.type, id: time })
           window.clearTimeout(alertTimeout)
-          alertTimeout = window.setTimeout(() => setCatchAlert(null), ALERT_DURATION)
+          alertTimeout = window.setTimeout(() => setCatchAlert(null), GAME_CONFIG.alertDurationMs)
           return false
         }
-        return item.y < state.height + 40
+        return item.y < state.height + COLLISION_CONFIG.offscreenPadding
       })
 
       context.clearRect(0, 0, state.width, state.height)
-      context.fillStyle = '#173a36'
+      context.fillStyle = GAME_COLORS.paddle
       context.beginPath()
-      context.roundRect(state.paddleX, paddleY, PADDLE_WIDTH, PADDLE_HEIGHT, 7)
+      context.roundRect(state.paddleX, paddleY, state.paddleWidth, PADDLE_CONFIG.height, PADDLE_CONFIG.height / 2)
       context.fill()
-      state.cans.forEach((item) => drawItem(context, item))
+      state.items.forEach((item) => drawItem(context, item))
       frame = requestAnimationFrame(draw)
     }
 
@@ -162,7 +198,7 @@ export function useKeoGame({ onStart, onReturn }) {
 
   const resetRound = () => {
     setScore(0)
-    setSecondsLeft(GAME_DURATION_SECONDS)
+    setSecondsLeft(GAME_CONFIG.durationSeconds)
     setCatchAlert(null)
     setResultMessage('')
   }
@@ -180,10 +216,16 @@ export function useKeoGame({ onStart, onReturn }) {
     onReturn()
   }
 
+  const finishGame = () => {
+    setResultMessage(getResultMessage(score))
+    setStatus('finished')
+  }
+
   return {
     canvasRef,
     catchAlert,
     resultMessage,
+    finishGame,
     score,
     secondsLeft,
     startGame,

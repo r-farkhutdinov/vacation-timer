@@ -35,3 +35,15 @@ export async function submitGlobalRecord(score, playerName) {
   })
   return records[0]
 }
+
+export async function getRecentGames() {
+  return request('/rest/v1/game_results?select=id,score,played_at&order=played_at.desc&limit=4')
+}
+
+export async function saveGame(score) {
+  const games = await request('/rest/v1/rpc/save_game', {
+    method: 'POST',
+    body: JSON.stringify({ p_score: score }),
+  })
+  return games[0]
+}
