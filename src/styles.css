@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600&display=swap');
+
+:root {
+  font-family: 'Roboto', sans-serif;
+  color: #173a36;
+  background: #f2eee6;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+.page {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(24px, 4vw, 56px);
+  isolation: isolate;
+}
+
+.page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  opacity: .38;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E");
+}
+
+.hero {
+  width: min(100%, 1400px);
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 clamp(38px, 7vh, 80px);
+  font-family: 'Roboto', sans-serif;
+  font-size: clamp(24px, 3.2vw, 54px);
+  font-weight: 500;
+  letter-spacing: -.04em;
+}
+
+.keo { color: #f5c400; }
+
+.countdown { display: flex; justify-content: center; align-items: flex-start; }
+.unit-wrap { display: flex; align-items: flex-start; }
+.unit { display: flex; flex-direction: column; align-items: center; min-width: clamp(72px, 16vw, 240px); }
+
+.number {
+  font-family: 'Roboto', sans-serif;
+  font-size: clamp(48px, 12vw, 170px);
+  line-height: .82;
+  letter-spacing: -.08em;
+  font-variant-numeric: tabular-nums;
+  color: #173a36;
+}
+
+.label { margin-top: clamp(18px, 3vh, 34px); text-transform: uppercase; letter-spacing: .18em; font-size: clamp(9px, .8vw, 12px); }
+.colon { margin: -.06em clamp(2px, .5vw, 8px) 0; font-family: 'Roboto', sans-serif; font-size: clamp(42px, 9vw, 130px); line-height: .82; color: #df5a3e; }
+.arrived { font-size: clamp(100px, 22vw, 300px); line-height: .7; color: #df5a3e; }
+
+@media (max-width: 680px) {
+  .countdown { display: grid; grid-template-columns: 1fr 1fr; gap: 30px 10px; }
+  .unit-wrap { justify-content: center; }
+  .unit-wrap:nth-child(2) .colon { display: none; }
+  .unit { min-width: 110px; }
+  .number { font-size: clamp(58px, 19vw, 90px); }
+  .colon { font-size: 54px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero { animation: enter .7s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes enter { from { opacity: 0; transform: translateY(18px); } }
+}
