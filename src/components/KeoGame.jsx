@@ -19,6 +19,7 @@ import { useKeoGame } from '../hooks/useKeoGame.js'
 function KeoGame({ onStart, onReturn, globalRecord }) {
   const [playerName, setPlayerName] = useState('')
   const [recordStatus, setRecordStatus] = useState('idle')
+  const [gameOpened, setGameOpened] = useState(false)
   const loggedRoundRef = useRef(false)
   const {
     canvasRef,
@@ -48,7 +49,13 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
   const returnsToTimer = () => {
     setPlayerName('')
     setRecordStatus('idle')
+    setGameOpened(false)
     returnToTimer()
+  }
+
+  const openGame = () => {
+    setGameOpened(true)
+    onStart()
   }
 
   const isNewRecord = status === 'finished'
@@ -70,8 +77,12 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
     }
   }
 
+  if (!gameOpened) {
+    return <button className="game-launch" type="button" onClick={openGame}>Начать игру</button>
+  }
+
   return (
-    <div className={`game-area ${status !== 'ready' ? 'game-area-active' : ''}`}>
+    <div className="game-area game-area-active">
       {!globalRecord.loading && !globalRecord.error && (
         <aside className="global-record">
           <div className="best-record">
@@ -90,7 +101,7 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
           </div>
         </aside>
       )}
-      <section className={`game ${status !== 'ready' ? 'game-active' : ''} ${catchAlert ? `game-${catchAlert.type}-hit` : ''}`} aria-label="Игра: поймай банки KEO">
+      <section className={`game game-active ${catchAlert ? `game-${catchAlert.type}-hit` : ''}`} aria-label="Игра: поймай банки KEO">
       {status === 'playing' && (
         <div className="game-stats">
           <span>ОЧКИ · {score}</span>
@@ -120,8 +131,21 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
         </div>
       )}
       {status !== 'playing' && (
-        <div className="game-overlay">
-          {status === 'finished' ? (
+        <div className={`game-overlay ${status === 'ready' ? 'game-instructions' : ''}`}>
+          {status === 'ready' ? (
+            <>
+              <span className="result-label">МИНИ-ИГРА · {GAME_CONFIG.durationSeconds} СЕКУНД</span>
+              <h2>Сделай правильный выбор</h2>
+              <div className="rules">
+                <span><i className="rule-dot keo-dot" />KEO +1 и замедление</span>
+                <span><i className="rule-dot water-dot" />Вода −5 и сброс скорости</span>
+                <span><i className="rule-dot bonus-dot" />Лови случайные бонусы</span>
+                <span><i className="rule-dot mega-dot" />Mega KEO +7</span>
+                <span><i className="rule-dot mega-water-dot" />Mega H₂O −15</span>
+              </div>
+              <button type="button" onClick={startsGame}>Играть</button>
+            </>
+          ) : (
             <>
               <span className="result-label">МОЙ РЕЗУЛЬТАТ</span>
               <strong>{score}</strong>
@@ -131,14 +155,7 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
                 <form className="record-form" onSubmit={saveRecord}>
                   <label htmlFor="player-name">Новый общий рекорд! Как тебя зовут?</label>
                   <div>
-                    <input
-                      id="player-name"
-                      maxLength="30"
-                      value={playerName}
-                      onChange={(event) => setPlayerName(event.target.value)}
-                      placeholder="Имя КЕОзавра"
-                      autoComplete="nickname"
-                    />
+                    <input id="player-name" maxLength="30" value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Имя КЕОзавра" autoComplete="nickname" />
                     <button type="submit">Сохранить рекорд</button>
                   </div>
                 </form>
@@ -151,19 +168,6 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
                 <button type="button" onClick={startsGame}>Сыграть ещё</button>
                 <button className="secondary-button" type="button" onClick={returnsToTimer}>Назад к томительному ожиданию</button>
               </div>
-            </>
-          ) : (
-            <>
-              <span className="result-label">МИНИ-ИГРА · {GAME_CONFIG.durationSeconds} СЕКУНД</span>
-              <h2>Сделай правильный выбор</h2>
-              <div className="rules">
-                <span><i className="rule-dot keo-dot" />KEO +1 и замедление</span>
-                <span><i className="rule-dot water-dot" />Вода −5 и сброс скорости</span>
-                <span><i className="rule-dot bonus-dot" />Лови случайные бонусы</span>
-                <span><i className="rule-dot mega-dot" />Mega KEO +7</span>
-                <span><i className="rule-dot mega-water-dot" />Mega H₂O −15</span>
-              </div>
-              <button type="button" onClick={startsGame}>Начать игру</button>
             </>
           )}
         </div>
