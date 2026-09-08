@@ -82,7 +82,7 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
   }
 
   return (
-    <div className="game-area game-area-active">
+    <div className={`game-area game-area-active ${status === 'playing' ? 'game-area-playing' : ''}`}>
       {!globalRecord.loading && !globalRecord.error && (
         <aside className="global-record">
           <div className="best-record">
@@ -101,7 +101,7 @@ function KeoGame({ onStart, onReturn, globalRecord }) {
           </div>
         </aside>
       )}
-      <section className={`game game-active ${catchAlert ? `game-${catchAlert.type}-hit` : ''}`} aria-label="Игра: поймай банки KEO">
+      <section className={`game ${status === 'playing' ? 'game-active' : ''} ${catchAlert ? `game-${catchAlert.type}-hit` : ''}`} aria-label="Игра: поймай банки KEO">
       {status === 'playing' && (
         <div className="game-stats">
           <span>ОЧКИ · {score}</span>

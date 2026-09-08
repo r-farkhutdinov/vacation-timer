@@ -105,6 +105,9 @@ h1 {
   min-width: 0;
   height: 240px;
   margin: clamp(20px, 5vh, 58px) auto 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .game-area-active { flex: 1 0 420px; min-height: 420px; height: auto; }
@@ -333,6 +336,8 @@ h1 {
   .colon { margin-inline: 0; font-size: clamp(34px, 10vw, 44px); }
   .game-area { flex-direction: column; gap: 10px; width: 100%; height: auto; margin-top: 28px; }
   .game-area-active { flex: 1 0 580px; min-height: 580px; }
+  .game-area-playing .global-record { display: none; }
+  .game-area-playing { min-height: 0; }
   .game { flex: 0 0 325px; width: 100%; min-height: 0; height: 325px; border-radius: 18px; }
   .game-active { flex: 1 0 520px; min-height: 520px; height: auto; }
   .global-record { align-self: stretch; order: 0; flex: 0 0 auto; width: 100%; min-width: 0; padding: 9px 12px; }
@@ -369,6 +374,7 @@ h1 {
   .game-area { margin-top: 18px; }
   .game { flex-basis: 305px; height: 305px; }
   .game-area-active { flex-basis: 520px; min-height: 520px; }
+  .game-area-playing { min-height: 0; }
   .game-active { flex-basis: 460px; min-height: 460px; height: auto; }
   .page-game-active .number { font-size: 30px; }
   .page-game-active { gap: 10px; }
